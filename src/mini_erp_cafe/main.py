@@ -14,3 +14,16 @@ async def on_startup():
 @app.on_event("shutdown")
 async def on_shutdown():
     print("🛑 Application stopped")
+
+
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     print("🚀 Application started")
+#     yield
+#     print("🛑 Application stopped")
+#
+# app = FastAPI(title="Mini ERP Cafe",
+#               lifespan=lifespan)
+#
+# app.include_router(health.router)
+# app.include_router(users.router)
