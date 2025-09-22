@@ -2,23 +2,23 @@ import asyncio
 from logging.config import fileConfig
 
 from sqlalchemy import pool
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
-
+from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
-from mini_erp_cafe.db.base import Base  # твоя база с моделями
 
-# this is the Alembic Config object, which provides access to the values
-# within the .ini file in use.
+from mini_erp_cafe.db.base import Base
+from mini_erp_cafe.config import settings
+
 config = context.config
 
-# Interpret the config file for Python logging.
-fileConfig(config.config_file_name)
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
 
 def run_migrations_offline():
-    url = config.get_main_option("sqlalchemy.url")
+    """Offline mode."""
+    url = settings.DATABASE_URL.replace("asyncpg", "psycopg2")
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -30,23 +30,20 @@ def run_migrations_offline():
         context.run_migrations()
 
 
-async def run_migrations_online():
-    connectable = create_async_engine(
-        config.get_main_option("sqlalchemy.url"),
-        poolclass=pool.NullPool,
-    )
-
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-
-    await connectable.dispose()
-
-
 def do_run_migrations(connection):
+    """Синхронный запуск миграций в online-режиме."""
     context.configure(connection=connection, target_metadata=target_metadata)
 
     with context.begin_transaction():
         context.run_migrations()
+
+
+async def run_migrations_online():
+    """Async → sync через run_sync."""
+    connectable = create_async_engine(settings.DATABASE_URL, poolclass=pool.NullPool)
+
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
 
 
 if context.is_offline_mode():
