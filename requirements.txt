@@ -50,3 +50,4 @@ annotated-types~=0.7.0
 httpx~=0.28.1
 prompt_toolkit~=3.0.52
 pydantic-settings~=2.10.1
+greenlet~=3.2.4
