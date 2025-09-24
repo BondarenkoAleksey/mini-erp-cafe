@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from .api import health, users
+from mini_erp_cafe.api.routes.orders import router as orders_router
 
 app = FastAPI(title="Mini ERP Cafe")
 
@@ -15,6 +16,7 @@ async def on_startup():
 async def on_shutdown():
     print("🛑 Application stopped")
 
+app.include_router(orders_router)
 
 # @asynccontextmanager
 # async def lifespan(app: FastAPI):
