@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -21,3 +21,20 @@ async def get_orders(db: AsyncSession) -> List[Order]:
     result = await db.execute(stmt)
     orders = result.scalars().unique().all()
     return orders
+
+
+async def get_order_by_id(db: AsyncSession, order_id: int) -> Optional[Order]:
+    """
+    Простая рабочая реализация: выбираем заказ по id и eagerly load items -> menu_item
+    Это предотвращает lazy-load при сериализации (и ошибку MissingGreenlet).
+    """
+    stmt = (
+        select(Order)
+        .where(Order.id == order_id)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.menu_item)
+        )
+    )
+    result = await db.execute(stmt)
+    order = result.scalars().unique().first()
+    return order
