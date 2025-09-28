@@ -10,6 +10,7 @@ from mini_erp_cafe.models.order import Order
 from mini_erp_cafe.models.order_item import OrderItem
 from mini_erp_cafe.schemas.order import OrderCreate, OrderRead
 
+from mini_erp_cafe.crud.order import delete_order
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -56,3 +57,13 @@ async def create_order_endpoint(order_in: OrderCreate, db: AsyncSession = Depend
     """
     order = await create_order(db, order_in)
     return order
+
+
+@router.delete("/{order_id}", status_code=204)
+async def remove_order(order_id: int, session: AsyncSession = Depends(get_async_session)):
+    """
+    Удаляет заказ.
+    """
+    deleted = await delete_order(session, order_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Order not found")
