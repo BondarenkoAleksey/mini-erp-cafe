@@ -76,3 +76,15 @@ async def create_order(db: AsyncSession, order_in: OrderCreate) -> OrderRead:
 
     # возвращаем через Pydantic с menu_item_name
     return OrderRead.from_orm_with_name(order)
+
+
+async def delete_order(session: AsyncSession, order_id: int) -> bool:
+    """
+    Удаляет заказ.
+    """
+    order = await session.get(Order, order_id)
+    if not order:
+        return False
+    await session.delete(order)
+    await session.commit()
+    return True
