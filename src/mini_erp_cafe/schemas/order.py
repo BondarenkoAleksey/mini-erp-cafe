@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, conint
 from typing import List, Optional
 from datetime import datetime
 from decimal import Decimal
@@ -23,6 +23,7 @@ class OrderItemRead(BaseModel):
     class Config:
         from_attributes = True
 
+
 class OrderRead(BaseModel):
     id: int
     user_id: int
@@ -45,11 +46,24 @@ class OrderRead(BaseModel):
     class Config:
         from_attributes = True
 
+
 class OrderItemCreate(BaseModel):
     menu_item_id: int
     quantity: int
     price: Decimal
 
+
 class OrderCreate(BaseModel):
     user_id: int
     items: List[OrderItemCreate]
+
+
+class OrderUpdate(BaseModel):
+    menu_item_id: Optional[int] = None
+    quantity: Optional[conint(ge=1)] = None
+    status: Optional[str] = None  # убрали Enum → строка
+    special_requests: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
+
+    class Config:
+        extra = "forbid"
