@@ -7,10 +7,11 @@ from mini_erp_cafe.models import Order, OrderItem, MenuItem
 from mini_erp_cafe.schemas.order import OrderCreate, OrderRead, OrderUpdate
 
 
-async def get_orders(db: AsyncSession) -> List[Order]:
+async def get_orders(db: AsyncSession, status: Optional[str] = None) -> List[Order]:
     """
-    Возвращает все заказы, подгружая items и связанные menu_item (чтобы избежать N+1).
-    Сортируем по времени создания (сначала новые).
+    Возвращает заказы с опциональной фильтрацией по статусу.
+    Подгружаем items и menu_item (чтобы избежать N+1).
+    Сортируем по времени создания (новые сверху).
     """
     stmt = (
         select(Order)
@@ -19,6 +20,9 @@ async def get_orders(db: AsyncSession) -> List[Order]:
         )
         .order_by(Order.created_at.desc())
     )
+    if status:
+        stmt = stmt.where(Order.status == status)
+
     result = await db.execute(stmt)
     orders = result.scalars().unique().all()
     return orders
