@@ -17,14 +17,17 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 @router.get("/", response_model=List[OrderRead])
 async def list_orders(
     status: Optional[str] = Query(None, description="Фильтрация по статусу заказа"),
-    db: AsyncSession = Depends(get_async_session)
+    limit: int = Query(50, ge=1, le=100, description="Максимум заказов за раз"),
+    offset: int = Query(0, ge=0, description="Смещение для пагинации"),
+    db: AsyncSession = Depends(get_async_session),
 ):
     """
     Возвращает список заказов (новые сверху).
-    Поддерживается фильтрация по статусу: open, in_progress, done, cancelled.
+    Поддерживает фильтрацию по статусу и пагинацию (limit/offset).
     """
-    orders = await get_orders(db, status=status)
+    orders = await get_orders(db, status=status, limit=limit, offset=offset)
     return [OrderRead.from_orm_with_name(o) for o in orders]
+
 
 
 @router.get("/{order_id}", response_model=OrderRead)
