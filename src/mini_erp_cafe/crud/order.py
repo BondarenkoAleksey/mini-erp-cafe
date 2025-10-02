@@ -12,19 +12,26 @@ async def get_orders(
     status: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
+    sort: str = "desc",
 ) -> List[Order]:
     """
-    Возвращает заказы с фильтрацией и пагинацией.
+    Возвращает заказы с фильтрацией, пагинацией и сортировкой.
     """
     stmt = (
         select(Order)
         .options(
             selectinload(Order.items).selectinload(OrderItem.menu_item)
         )
-        .order_by(Order.created_at.desc())
     )
+
     if status:
         stmt = stmt.where(Order.status == status)
+
+    # сортировка
+    if sort == "asc":
+        stmt = stmt.order_by(Order.created_at.asc())
+    else:
+        stmt = stmt.order_by(Order.created_at.desc())
 
     stmt = stmt.limit(limit).offset(offset)
 

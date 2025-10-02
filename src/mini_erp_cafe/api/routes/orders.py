@@ -19,13 +19,14 @@ async def list_orders(
     status: Optional[str] = Query(None, description="Фильтрация по статусу заказа"),
     limit: int = Query(50, ge=1, le=100, description="Максимум заказов за раз"),
     offset: int = Query(0, ge=0, description="Смещение для пагинации"),
+    sort: str = Query("desc", regex="^(asc|desc)$", description="Сортировка: asc или desc"),
     db: AsyncSession = Depends(get_async_session),
 ):
     """
-    Возвращает список заказов (новые сверху).
-    Поддерживает фильтрацию по статусу и пагинацию (limit/offset).
+    Возвращает список заказов.
+    Поддерживает фильтрацию по статусу, пагинацию (limit/offset) и сортировку (asc/desc).
     """
-    orders = await get_orders(db, status=status, limit=limit, offset=offset)
+    orders = await get_orders(db, status=status, limit=limit, offset=offset, sort=sort)
     return [OrderRead.from_orm_with_name(o) for o in orders]
 
 
