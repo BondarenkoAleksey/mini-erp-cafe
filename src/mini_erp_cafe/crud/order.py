@@ -10,35 +10,32 @@ from mini_erp_cafe.schemas.order import OrderCreate, OrderRead, OrderUpdate
 async def get_orders(
     db: AsyncSession,
     status: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0,
-    sort: str = "desc",
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
 ) -> List[Order]:
     """
-    Возвращает заказы с фильтрацией, пагинацией и сортировкой.
+    Возвращает список заказов с опциональной фильтрацией по статусу и дате.
+    Подгружаем items и menu_item, сортируем по created_at (новые первыми).
     """
     stmt = (
         select(Order)
         .options(
             selectinload(Order.items).selectinload(OrderItem.menu_item)
         )
+        .order_by(Order.created_at.desc())
     )
 
     if status:
         stmt = stmt.where(Order.status == status)
 
-    # сортировка
-    if sort == "asc":
-        stmt = stmt.order_by(Order.created_at.asc())
-    else:
-        stmt = stmt.order_by(Order.created_at.desc())
+    if date_from:
+        stmt = stmt.where(Order.created_at >= date_from)
 
-    stmt = stmt.limit(limit).offset(offset)
+    if date_to:
+        stmt = stmt.where(Order.created_at <= date_to)
 
     result = await db.execute(stmt)
-    orders = result.scalars().unique().all()
-    return orders
-
+    return result.scalars().unique().all()
 
 
 async def get_order_by_id(db: AsyncSession, order_id: int) -> Optional[Order]:
