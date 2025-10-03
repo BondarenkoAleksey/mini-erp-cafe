@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
@@ -16,19 +17,17 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 
 @router.get("/", response_model=List[OrderRead])
 async def list_orders(
-    status: Optional[str] = Query(None, description="Фильтрация по статусу заказа"),
-    limit: int = Query(50, ge=1, le=100, description="Максимум заказов за раз"),
-    offset: int = Query(0, ge=0, description="Смещение для пагинации"),
-    sort: str = Query("desc", regex="^(asc|desc)$", description="Сортировка: asc или desc"),
+    status: Optional[str] = Query(None, description="Фильтр по статусу"),
+    date_from: Optional[datetime] = Query(None, description="Начальная дата"),
+    date_to: Optional[datetime] = Query(None, description="Конечная дата"),
     db: AsyncSession = Depends(get_async_session),
 ):
     """
     Возвращает список заказов.
-    Поддерживает фильтрацию по статусу, пагинацию (limit/offset) и сортировку (asc/desc).
+    Поддерживает фильтрацию по статусу и диапазону дат.
     """
-    orders = await get_orders(db, status=status, limit=limit, offset=offset, sort=sort)
+    orders = await get_orders(db, status=status, date_from=date_from, date_to=date_to)
     return [OrderRead.from_orm_with_name(o) for o in orders]
-
 
 
 @router.get("/{order_id}", response_model=OrderRead)
