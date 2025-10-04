@@ -20,13 +20,17 @@ async def list_orders(
     status: Optional[str] = Query(None, description="Фильтр по статусу"),
     date_from: Optional[datetime] = Query(None, description="Начальная дата"),
     date_to: Optional[datetime] = Query(None, description="Конечная дата"),
+    limit: Optional[int] = Query(None, description="Количество записей для вывода"),
+    offset: Optional[int] = Query(None, description="Смещение для пагинации"),
     db: AsyncSession = Depends(get_async_session),
 ):
     """
     Возвращает список заказов.
-    Поддерживает фильтрацию по статусу и диапазону дат.
+    Поддерживает фильтрацию по статусу и диапазону дат, фильтрацию и пагинацию.
     """
-    orders = await get_orders(db, status=status, date_from=date_from, date_to=date_to)
+    orders = await get_orders(
+        db, status=status, date_from=date_from, date_to=date_to, limit=limit, offset=offset
+    )
     return [OrderRead.from_orm_with_name(o) for o in orders]
 
 
