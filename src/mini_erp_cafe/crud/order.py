@@ -8,14 +8,17 @@ from mini_erp_cafe.schemas.order import OrderCreate, OrderRead, OrderUpdate
 
 
 async def get_orders(
-    db: AsyncSession,
-    status: Optional[str] = None,
-    date_from: Optional[datetime] = None,
-    date_to: Optional[datetime] = None,
+        db: AsyncSession,
+        status: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
 ) -> List[Order]:
     """
     Возвращает список заказов с опциональной фильтрацией по статусу и дате.
     Подгружаем items и menu_item, сортируем по created_at (новые первыми).
+    С фильтрацией и пагинацией.
     """
     stmt = (
         select(Order)
@@ -33,6 +36,11 @@ async def get_orders(
 
     if date_to:
         stmt = stmt.where(Order.created_at <= date_to)
+
+    if limit:
+        stmt = stmt.limit(limit)
+    if offset:
+        stmt = stmt.offset(offset)
 
     result = await db.execute(stmt)
     return result.scalars().unique().all()
