@@ -1,7 +1,8 @@
 from pydantic import BaseModel, conint
 from typing import List, Optional
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
+
 
 class OrderItemRead(BaseModel):
     id: int
@@ -31,16 +32,22 @@ class OrderRead(BaseModel):
     created_at: datetime
     closed_at: Optional[datetime] = None
     items: List[OrderItemRead] = []
+    total_price: Decimal
 
     @classmethod
     def from_orm_with_name(cls, order):
+        total = sum(
+            (item.price or Decimal("0")) * item.quantity for item in order.items
+        )
+
         return cls(
             id=order.id,
             user_id=order.user_id,
             status=order.status,
             created_at=order.created_at,
             closed_at=order.closed_at,
-            items=[OrderItemRead.from_orm_with_name(i) for i in order.items]
+            items=[OrderItemRead.from_orm_with_name(i) for i in order.items],
+            total_price=total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         )
 
     class Config:
