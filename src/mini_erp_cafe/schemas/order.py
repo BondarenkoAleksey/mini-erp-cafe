@@ -33,12 +33,14 @@ class OrderRead(BaseModel):
     closed_at: Optional[datetime] = None
     items: List[OrderItemRead] = []
     total_price: Decimal
+    count_items: int
 
     @classmethod
     def from_orm_with_name(cls, order):
         total = sum(
             (item.price or Decimal("0")) * item.quantity for item in order.items
         )
+        count = sum(item.quantity for item in order.items)
 
         return cls(
             id=order.id,
@@ -47,7 +49,8 @@ class OrderRead(BaseModel):
             created_at=order.created_at,
             closed_at=order.closed_at,
             items=[OrderItemRead.from_orm_with_name(i) for i in order.items],
-            total_price=total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            total_price=total.quantize(Decimal("0.01")),
+            count_items=count,
         )
 
     class Config:
