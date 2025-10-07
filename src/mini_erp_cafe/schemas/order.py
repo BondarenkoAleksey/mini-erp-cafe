@@ -28,6 +28,7 @@ class OrderItemRead(BaseModel):
 class OrderRead(BaseModel):
     id: int
     user_id: int
+    customer_name: Optional[str] = None
     status: str
     created_at: datetime
     closed_at: Optional[datetime] = None
@@ -42,9 +43,12 @@ class OrderRead(BaseModel):
         )
         count = sum(item.quantity for item in order.items)
 
+        customer_name = order.user.name if getattr(order, "user", None) else None
+
         return cls(
             id=order.id,
             user_id=order.user_id,
+            customer_name=customer_name,
             status=order.status,
             created_at=order.created_at,
             closed_at=order.closed_at,
