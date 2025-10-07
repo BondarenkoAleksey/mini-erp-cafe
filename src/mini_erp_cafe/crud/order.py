@@ -8,35 +8,33 @@ from mini_erp_cafe.schemas.order import OrderCreate, OrderRead, OrderUpdate
 
 
 async def get_orders(
-        db: AsyncSession,
-        status: Optional[str] = None,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
+    db: AsyncSession,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
 ) -> List[Order]:
     """
     Возвращает список заказов с опциональной фильтрацией по статусу и дате.
-    Подгружаем items и menu_item, сортируем по created_at (новые первыми).
-    С фильтрацией и пагинацией.
+    Подгружаем items, menu_item и user.
+    Сортируем по created_at (новые первыми).
     """
     stmt = (
         select(Order)
         .options(
-            selectinload(Order.items).selectinload(OrderItem.menu_item)
+            selectinload(Order.items).selectinload(OrderItem.menu_item),
+            selectinload(Order.user),
         )
         .order_by(Order.created_at.desc())
     )
 
     if status:
         stmt = stmt.where(Order.status == status)
-
     if date_from:
         stmt = stmt.where(Order.created_at >= date_from)
-
     if date_to:
         stmt = stmt.where(Order.created_at <= date_to)
-
     if limit:
         stmt = stmt.limit(limit)
     if offset:
@@ -48,14 +46,15 @@ async def get_orders(
 
 async def get_order_by_id(db: AsyncSession, order_id: int) -> Optional[Order]:
     """
-    Простая рабочая реализация: выбираем заказ по id и eagerly load items -> menu_item
-    Это предотвращает lazy-load при сериализации (и ошибку MissingGreenlet).
+    Возвращает заказ по ID с подгруженными items, menu_item и user.
+    Предотвращает MissingGreenlet при сериализации.
     """
     stmt = (
         select(Order)
         .where(Order.id == order_id)
         .options(
-            selectinload(Order.items).selectinload(OrderItem.menu_item)
+            selectinload(Order.items).selectinload(OrderItem.menu_item),
+            selectinload(Order.user),
         )
     )
     result = await db.execute(stmt)
