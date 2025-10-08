@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mini_erp_cafe.crud.order import create_order, get_orders, get_order_by_id
-from mini_erp_cafe.crud.order import update_order, delete_order
+from mini_erp_cafe.crud.order import get_orders_summary, update_order, delete_order
 from mini_erp_cafe.db.session import get_async_session
 from mini_erp_cafe.models.menu_item import MenuItem
 from mini_erp_cafe.models.order import Order
@@ -92,3 +92,12 @@ async def remove_order(order_id: int, session: AsyncSession = Depends(get_async_
     deleted = await delete_order(session, order_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Order not found")
+
+
+@router.get("/summary")
+async def get_orders_summary_endpoint(db: AsyncSession = Depends(get_async_session)):
+    """
+    Возвращает сводную статистику по заказам.
+    """
+    summary = await get_orders_summary(db)
+    return summary
