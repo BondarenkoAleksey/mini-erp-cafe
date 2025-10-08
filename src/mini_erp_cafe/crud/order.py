@@ -1,6 +1,7 @@
+from decimal import Decimal
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from mini_erp_cafe.models import Order, OrderItem, MenuItem
@@ -60,6 +61,31 @@ async def get_order_by_id(db: AsyncSession, order_id: int) -> Optional[Order]:
     result = await db.execute(stmt)
     order = result.scalars().unique().first()
     return order
+
+
+async def get_orders_summary(db: AsyncSession) -> dict:
+    """
+    Возвращает сводную статистику по заказам:
+    - количество заказов
+    - общую сумму
+    - средний чек
+    """
+    stmt = select(
+        func.count(Order.id),
+        func.coalesce(func.sum(OrderItem.price * OrderItem.quantity), 0),
+    ).join(Order.items)
+
+    result = await db.execute(stmt)
+    count_orders, total_revenue = result.first()
+
+    total_revenue = Decimal(total_revenue or 0)
+    average_check = total_revenue / count_orders if count_orders > 0 else Decimal(0)
+
+    return {
+        "count_orders": count_orders,
+        "total_revenue": total_revenue,
+        "average_check": round(average_check, 2),
+    }
 
 
 async def create_order(db: AsyncSession, order_in: OrderCreate) -> OrderRead:
