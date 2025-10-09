@@ -95,9 +95,13 @@ async def remove_order(order_id: int, session: AsyncSession = Depends(get_async_
 
 
 @router.get("/summary")
-async def get_orders_summary_endpoint(db: AsyncSession = Depends(get_async_session)):
+async def get_orders_summary_endpoint(
+    status: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_async_session),
+):
     """
     Возвращает сводную статистику по заказам.
+    Опционально можно фильтровать по статусу.
     """
-    summary = await get_orders_summary(db)
+    summary = await get_orders_summary(db, status)
     return summary
