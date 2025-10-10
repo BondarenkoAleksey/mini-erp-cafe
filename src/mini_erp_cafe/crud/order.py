@@ -63,13 +63,14 @@ async def get_order_by_id(db: AsyncSession, order_id: int) -> Optional[Order]:
     return order
 
 
-async def get_orders_summary(db: AsyncSession, status: Optional[str] = None) -> dict:
+async def get_orders_summary(db: AsyncSession, status: Optional[str] = None,
+    user_id: Optional[int] = None) -> dict:
     """
-    Возвращает сводную статистику по заказам.
-    - количество заказов
-    - общую сумму
-    - средний чек
-    Можно фильтровать по статусу.
+        Возвращает сводную статистику по заказам.
+        - количество заказов
+        - общую сумму
+        - средний чек
+    Можно фильтровать по статусу и user_id.
     """
     stmt = (
         select(
@@ -82,6 +83,9 @@ async def get_orders_summary(db: AsyncSession, status: Optional[str] = None) -> 
     if status:
         stmt = stmt.where(Order.status == status)
 
+    if user_id:
+        stmt = stmt.where(Order.user_id == user_id)
+
     result = await db.execute(stmt)
     count_orders, total_revenue = result.first()
 
@@ -93,6 +97,7 @@ async def get_orders_summary(db: AsyncSession, status: Optional[str] = None) -> 
         "total_revenue": total_revenue,
         "average_check": round(average_check, 2),
         "status": status or "all",
+        "user_id": user_id,
     }
 
 
