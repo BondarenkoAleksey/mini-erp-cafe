@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,14 +64,19 @@ async def get_order_by_id(db: AsyncSession, order_id: int) -> Optional[Order]:
     return order
 
 
-async def get_orders_summary(db: AsyncSession, status: Optional[str] = None,
-    user_id: Optional[int] = None) -> dict:
+async def get_orders_summary(
+    db: AsyncSession,
+    status: Optional[str] = None,
+    user_id: Optional[int] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> dict:
     """
-        Возвращает сводную статистику по заказам.
-        - количество заказов
-        - общую сумму
-        - средний чек
-    Можно фильтровать по статусу и user_id.
+    Возвращает сводную статистику по заказам.
+    - количество заказов
+    - общую сумму
+    - средний чек
+    Можно фильтровать по статусу, user_id и диапазону дат.
     """
     stmt = (
         select(
@@ -86,6 +92,12 @@ async def get_orders_summary(db: AsyncSession, status: Optional[str] = None,
     if user_id:
         stmt = stmt.where(Order.user_id == user_id)
 
+    if date_from:
+        stmt = stmt.where(Order.created_at >= date_from)
+
+    if date_to:
+        stmt = stmt.where(Order.created_at <= date_to)
+
     result = await db.execute(stmt)
     count_orders, total_revenue = result.first()
 
@@ -98,6 +110,8 @@ async def get_orders_summary(db: AsyncSession, status: Optional[str] = None,
         "average_check": round(average_check, 2),
         "status": status or "all",
         "user_id": user_id,
+        "date_from": date_from,
+        "date_to": date_to,
     }
 
 

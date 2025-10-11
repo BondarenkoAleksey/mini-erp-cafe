@@ -98,11 +98,13 @@ async def remove_order(order_id: int, session: AsyncSession = Depends(get_async_
 async def get_orders_summary_endpoint(
     status: Optional[str] = Query(None),
     user_id: Optional[int] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
     db: AsyncSession = Depends(get_async_session),
 ):
     """
     Возвращает сводную статистику по заказам.
-    Можно фильтровать по статусу и user_id.
+    Можно фильтровать по статусу, user_id и диапазону дат.
     """
-    summary = await get_orders_summary(db, status, user_id)
+    summary = await get_orders_summary(db, status, user_id, date_from, date_to)
     return summary
