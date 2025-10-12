@@ -73,8 +73,8 @@ pytest -v
 
  Базовый проект и структура
 
- - Health-check эндпоинт
- - Подключение PostgreSQL (SQLAlchemy + Alembic)
+ - Health-check эндпоинт ✅
+ - Подключение PostgreSQL (SQLAlchemy + Alembic) ✅
  - Подключение Redis
  - Настройка Celery
  - CI/CD (GitLab)
