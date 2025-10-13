@@ -16,9 +16,9 @@ cd mini-erp-cafe
 ```
 2. Создать виртуальное окружение:
 ```bash
-python3.12 -m venv venv
-source venv/bin/activate      # Linux / macOS
-# или .\venv\Scripts\activate  # Windows PowerShell
+python3.12 -m .venv .venv
+source .venv/bin/activate      # Linux / macOS
+# или .\.venv\Scripts\activate  # Windows PowerShell
 ```
 
 3. Установить зависимости:
