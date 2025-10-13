@@ -1,8 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
+from sqlalchemy import select, func, cast, Date
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from mini_erp_cafe.models import Order, OrderItem, MenuItem
@@ -70,35 +70,57 @@ async def get_orders_summary(
     user_id: Optional[int] = None,
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
+    group_by: Optional[str] = None,
 ) -> dict:
     """
     Возвращает сводную статистику по заказам.
-    - количество заказов
-    - общую сумму
-    - средний чек
-    Можно фильтровать по статусу, user_id и диапазону дат.
+    Можно фильтровать и группировать по статусу, пользователю или дате.
     """
-    stmt = (
+    base_stmt = (
         select(
-            func.count(Order.id),
-            func.coalesce(func.sum(OrderItem.price * OrderItem.quantity), 0),
+            func.count(Order.id).label("count_orders"),
+            func.coalesce(func.sum(OrderItem.price * OrderItem.quantity), 0).label("total_revenue"),
         )
         .join(Order.items)
     )
 
+    # Фильтры
     if status:
-        stmt = stmt.where(Order.status == status)
-
+        base_stmt = base_stmt.where(Order.status == status)
     if user_id:
-        stmt = stmt.where(Order.user_id == user_id)
-
+        base_stmt = base_stmt.where(Order.user_id == user_id)
     if date_from:
-        stmt = stmt.where(Order.created_at >= date_from)
-
+        base_stmt = base_stmt.where(Order.created_at >= date_from)
     if date_to:
-        stmt = stmt.where(Order.created_at <= date_to)
+        base_stmt = base_stmt.where(Order.created_at <= date_to)
 
-    result = await db.execute(stmt)
+    # Группировка
+    group_map = {
+        "status": Order.status,
+        "user_id": Order.user_id,
+        "day": cast(Order.created_at, Date)
+    }
+
+    if group_by and group_by in group_map:
+        base_stmt = base_stmt.add_columns(group_map[group_by].label("group"))
+        base_stmt = base_stmt.group_by(group_map[group_by])
+        result = await db.execute(base_stmt)
+        rows = result.all()
+
+        grouped = []
+        for row in rows:
+            total_revenue = Decimal(row.total_revenue or 0)
+            average_check = total_revenue / row.count_orders if row.count_orders > 0 else Decimal(0)
+            grouped.append({
+                "group": str(row.group),
+                "count_orders": row.count_orders,
+                "total_revenue": total_revenue,
+                "average_check": round(average_check, 2)
+            })
+        return {"group_by": group_by, "results": grouped}
+
+    # Без группировки
+    result = await db.execute(base_stmt)
     count_orders, total_revenue = result.first()
 
     total_revenue = Decimal(total_revenue or 0)

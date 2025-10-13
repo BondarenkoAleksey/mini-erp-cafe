@@ -95,16 +95,17 @@ async def remove_order(order_id: int, session: AsyncSession = Depends(get_async_
 
 
 @router.get("/summary")
-async def get_orders_summary_endpoint(
+async def get_orders_summary(
     status: Optional[str] = Query(None),
     user_id: Optional[int] = Query(None),
     date_from: Optional[datetime] = Query(None),
     date_to: Optional[datetime] = Query(None),
+    group_by: Optional[str] = Query(None, description="status | user_id | day"),
     db: AsyncSession = Depends(get_async_session),
 ):
     """
     Возвращает сводную статистику по заказам.
-    Можно фильтровать по статусу, user_id и диапазону дат.
+    Можно фильтровать и группировать по статусу, пользователю или дате.
     """
-    summary = await get_orders_summary(db, status, user_id, date_from, date_to)
+    summary = await get_orders_summary(db, status, user_id, date_from, date_to, group_by)
     return summary
