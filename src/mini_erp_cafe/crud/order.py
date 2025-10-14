@@ -65,40 +65,43 @@ async def get_order_by_id(db: AsyncSession, order_id: int) -> Optional[Order]:
 
 
 async def get_orders_summary(
-    db: AsyncSession,
-    status: Optional[str] = None,
-    user_id: Optional[int] = None,
-    date_from: Optional[datetime] = None,
-    date_to: Optional[datetime] = None,
-    group_by: Optional[str] = None,
-) -> dict:
+    db,
+    group_by: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+):
     """
-    Возвращает сводную статистику по заказам.
-    Можно фильтровать и группировать по статусу, пользователю или дате.
+    Возвращает агрегированную статистику по заказам:
+    - количество заказов
+    - общую сумму (total_revenue)
+    - средний чек (average_check)
+    Поддерживает группировку (по статусу, пользователю или дате)
+    и итоговую строку "total" для всех групп.
     """
+
+    # Базовый запрос с join
     base_stmt = (
         select(
             func.count(Order.id).label("count_orders"),
-            func.coalesce(func.sum(OrderItem.price * OrderItem.quantity), 0).label("total_revenue"),
+            func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue")
         )
         .join(Order.items)
+        .join(OrderItem.menu_item)
+        .where(OrderItem.menu_item_id.isnot(None))
     )
 
-    # Фильтры
-    if status:
-        base_stmt = base_stmt.where(Order.status == status)
-    if user_id:
-        base_stmt = base_stmt.where(Order.user_id == user_id)
+    # Фильтрация по дате
     if date_from:
         base_stmt = base_stmt.where(Order.created_at >= date_from)
     if date_to:
         base_stmt = base_stmt.where(Order.created_at <= date_to)
 
-    # Группировка
+    # Поддерживаемые поля для группировки
     group_map = {
         "status": Order.status,
         "user_id": Order.user_id,
-        "day": cast(Order.created_at, Date)
+        "menu_item_id": OrderItem.menu_item_id,
+        "date": func.date(Order.created_at)
     }
 
     if group_by and group_by in group_map:
@@ -108,6 +111,9 @@ async def get_orders_summary(
         rows = result.all()
 
         grouped = []
+        total_orders = 0
+        total_revenue_sum = Decimal(0)
+
         for row in rows:
             total_revenue = Decimal(row.total_revenue or 0)
             average_check = total_revenue / row.count_orders if row.count_orders > 0 else Decimal(0)
@@ -117,23 +123,31 @@ async def get_orders_summary(
                 "total_revenue": total_revenue,
                 "average_check": round(average_check, 2)
             })
-        return {"group_by": group_by, "results": grouped}
 
-    # Без группировки
+            total_orders += row.count_orders
+            total_revenue_sum += total_revenue
+
+        # Добавляем итоговую строку
+        total_avg = total_revenue_sum / total_orders if total_orders > 0 else Decimal(0)
+        total_row = {
+            "group": "total",
+            "count_orders": total_orders,
+            "total_revenue": total_revenue_sum,
+            "average_check": round(total_avg, 2)
+        }
+
+        return {"group_by": group_by, "results": grouped, "total": total_row}
+
+    # Без группировки — просто общая статистика
     result = await db.execute(base_stmt)
-    count_orders, total_revenue = result.first()
-
-    total_revenue = Decimal(total_revenue or 0)
-    average_check = total_revenue / count_orders if count_orders > 0 else Decimal(0)
+    row = result.first()
+    total_revenue = Decimal(row.total_revenue or 0)
+    average_check = total_revenue / row.count_orders if row.count_orders > 0 else Decimal(0)
 
     return {
-        "count_orders": count_orders,
+        "count_orders": row.count_orders,
         "total_revenue": total_revenue,
-        "average_check": round(average_check, 2),
-        "status": status or "all",
-        "user_id": user_id,
-        "date_from": date_from,
-        "date_to": date_to,
+        "average_check": round(average_check, 2)
     }
 
 
