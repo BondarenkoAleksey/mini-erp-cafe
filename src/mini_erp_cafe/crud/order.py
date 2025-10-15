@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import List, Optional
 from sqlalchemy import select, func, cast, Date
@@ -246,3 +246,39 @@ async def delete_order(session: AsyncSession, order_id: int) -> bool:
     await session.delete(order)
     await session.commit()
     return True
+
+async def get_orders_daily_stats(
+    db: AsyncSession,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> List[dict]:
+    """
+    Возвращает статистику заказов по дням: количество и общая сумма.
+    По умолчанию за последние 7 дней.
+    """
+    if not date_to:
+        date_to = datetime.utcnow()
+    if not date_from:
+        date_from = date_to - timedelta(days=7)
+
+    stmt = (
+        select(
+            cast(func.date_trunc("day", Order.created_at), Date).label("date"),
+            func.count(Order.id).label("count_orders"),
+            func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
+        )
+        .join(Order.items)
+        .where(Order.created_at.between(date_from, date_to))
+        .group_by("date")
+        .order_by("date")
+    )
+
+    result = await db.execute(stmt)
+    return [
+        {
+            "date": row.date,
+            "count_orders": row.count_orders,
+            "total_revenue": float(row.total_revenue or 0)
+        }
+        for row in result.all()
+    ]
