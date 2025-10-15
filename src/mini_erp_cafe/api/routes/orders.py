@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from mini_erp_cafe.crud.order import create_order, get_orders, get_order_by_id
+from mini_erp_cafe.crud.order import create_order, get_orders, get_order_by_id, get_orders_daily_stats
 from mini_erp_cafe.crud.order import get_orders_summary, update_order, delete_order
 from mini_erp_cafe.db.session import get_async_session
 from mini_erp_cafe.models.menu_item import MenuItem
@@ -116,3 +116,17 @@ async def get_orders_summary_endpoint(
         date_to=date_to,
     )
     return summary
+
+
+@router.get("/stats/daily")
+async def get_orders_daily_stats_endpoint(
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    db: AsyncSession = Depends(get_async_session)
+):
+    """
+    Возвращает количество заказов и выручку по дням.
+    По умолчанию — за последние 7 дней.
+    """
+    stats = await get_orders_daily_stats(db, date_from, date_to)
+    return {"days": stats, "total_days": len(stats)}
