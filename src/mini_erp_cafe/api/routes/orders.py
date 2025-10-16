@@ -118,15 +118,28 @@ async def get_orders_summary_endpoint(
     return summary
 
 
-@router.get("/stats/daily")
-async def get_orders_daily_stats_endpoint(
-    date_from: Optional[datetime] = Query(None),
-    date_to: Optional[datetime] = Query(None),
-    db: AsyncSession = Depends(get_async_session)
+@router.get("/stats")
+async def get_orders_stats_endpoint(
+    db: AsyncSession = Depends(get_async_session),
+    interval: str = Query("day", enum=["day", "week", "month"], description="Интервал группировки"),
+    date_from: Optional[datetime] = Query(None, description="Начальная дата"),
+    date_to: Optional[datetime] = Query(None, description="Конечная дата"),
 ):
     """
-    Возвращает количество заказов и выручку по дням.
-    По умолчанию — за последние 7 дней.
+    Возвращает агрегированную статистику заказов:
+    - interval: 'day' | 'week' | 'month'
+    - по умолчанию последние 7 дней
     """
-    stats = await get_orders_daily_stats(db, date_from, date_to)
-    return {"days": stats, "total_days": len(stats)}
+    return await get_orders_stats(db, interval=interval, date_from=date_from, date_to=date_to)
+
+
+@router.get("/stats/daily")
+async def get_orders_stats_daily_endpoint(
+    db: AsyncSession = Depends(get_async_session),
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+):
+    """
+    Алиас для /stats с interval='day' (совместимость со старой ручкой)
+    """
+    return await get_orders_stats(db, interval="day", date_from=date_from, date_to=date_to)

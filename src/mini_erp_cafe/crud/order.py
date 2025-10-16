@@ -247,38 +247,46 @@ async def delete_order(session: AsyncSession, order_id: int) -> bool:
     await session.commit()
     return True
 
-async def get_orders_daily_stats(
+
+async def get_orders_stats(
     db: AsyncSession,
+    interval: str = "day",
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
 ) -> List[dict]:
     """
-    Возвращает статистику заказов по дням: количество и общая сумма.
-    По умолчанию за последние 7 дней.
+    Возвращает агрегированную статистику заказов:
+    - по дням, неделям или месяцам
     """
     if not date_to:
         date_to = datetime.utcnow()
     if not date_from:
         date_from = date_to - timedelta(days=7)
 
+    trunc_unit = {
+        "day": "day",
+        "week": "week",
+        "month": "month"
+    }[interval]
+
     stmt = (
         select(
-            cast(func.date_trunc("day", Order.created_at), Date).label("date"),
+            cast(func.date_trunc(trunc_unit, Order.created_at), Date).label("period"),
             func.count(Order.id).label("count_orders"),
             func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
         )
         .join(Order.items)
         .where(Order.created_at.between(date_from, date_to))
-        .group_by("date")
-        .order_by("date")
+        .group_by("period")
+        .order_by("period")
     )
 
     result = await db.execute(stmt)
     return [
         {
-            "date": row.date,
+            "period": row.period,
             "count_orders": row.count_orders,
-            "total_revenue": float(row.total_revenue or 0)
+            "total_revenue": float(row.total_revenue or 0),
         }
         for row in result.all()
     ]
