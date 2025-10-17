@@ -257,6 +257,7 @@ async def get_orders_stats(
     """
     Возвращает агрегированную статистику заказов:
     - по дням, неделям или месяцам
+    - добавлено поле avg_order_value (средний чек)
     """
     if not date_to:
         date_to = datetime.utcnow()
@@ -274,6 +275,9 @@ async def get_orders_stats(
             cast(func.date_trunc(trunc_unit, Order.created_at), Date).label("period"),
             func.count(Order.id).label("count_orders"),
             func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
+            (
+                func.sum(OrderItem.price * OrderItem.quantity) / func.nullif(func.count(Order.id), 0)
+            ).label("avg_order_value"),
         )
         .join(Order.items)
         .where(Order.created_at.between(date_from, date_to))
@@ -287,6 +291,7 @@ async def get_orders_stats(
             "period": row.period,
             "count_orders": row.count_orders,
             "total_revenue": float(row.total_revenue or 0),
+            "avg_order_value": float(row.avg_order_value or 0),
         }
         for row in result.all()
     ]
