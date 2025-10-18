@@ -6,12 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from mini_erp_cafe.crud.order import create_order, get_orders, get_order_by_id, get_orders_daily_stats
 from mini_erp_cafe.crud.order import get_orders_summary, update_order, delete_order
+from mini_erp_cafe.crud.order import get_top_menu_items, get_orders_stats
 from mini_erp_cafe.db.session import get_async_session
 from mini_erp_cafe.models.menu_item import MenuItem
-from mini_erp_cafe.models.order import Order
-from mini_erp_cafe.models.order_item import OrderItem
+from mini_erp_cafe.models.order import Order, OrderItem
 from mini_erp_cafe.schemas.order import OrderCreate, OrderRead, OrderUpdate
-
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -143,3 +142,16 @@ async def get_orders_stats_daily_endpoint(
     Алиас для /stats с interval='day' (совместимость со старой ручкой)
     """
     return await get_orders_stats(db, interval="day", date_from=date_from, date_to=date_to)
+
+
+@router.get("/stats/top")
+async def get_top_items(
+    limit: int = 5,
+    db: AsyncSession = Depends(get_async_session)
+):
+    """
+    Топ самых популярных блюд (по количеству заказанных порций).
+    """
+    items = await get_top_menu_items(db, limit)
+    return {"top_items": items}
+

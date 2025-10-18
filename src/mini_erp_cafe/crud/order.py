@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import List, Optional
-from sqlalchemy import select, func, cast, Date
+from sqlalchemy import select, func, cast, Date, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -292,6 +292,34 @@ async def get_orders_stats(
             "count_orders": row.count_orders,
             "total_revenue": float(row.total_revenue or 0),
             "avg_order_value": float(row.avg_order_value or 0),
+        }
+        for row in result.all()
+    ]
+
+
+async def get_top_menu_items(
+    db: AsyncSession,
+    limit: int = 5
+) -> list[dict]:
+    """
+    Возвращает топ самых популярных блюд по количеству заказанных позиций.
+    """
+    stmt = (
+        select(
+            MenuItem.name.label("menu_item_name"),
+            func.sum(OrderItem.quantity).label("total_sold"),
+        )
+        .join(MenuItem, MenuItem.id == OrderItem.menu_item_id)
+        .group_by(MenuItem.name)
+        .order_by(desc("total_sold"))
+        .limit(limit)
+    )
+
+    result = await db.execute(stmt)
+    return [
+        {
+            "menu_item_name": row.menu_item_name,
+            "total_sold": int(row.total_sold or 0),
         }
         for row in result.all()
     ]
