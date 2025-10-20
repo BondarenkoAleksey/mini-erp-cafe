@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from mini_erp_cafe.crud.order import create_order, get_orders, get_order_by_id, get_orders_daily_stats
 from mini_erp_cafe.crud.order import get_orders_summary, update_order, delete_order
-from mini_erp_cafe.crud.order import get_top_menu_items, get_orders_stats
+from mini_erp_cafe.crud.order import get_top_menu_items, get_orders_stats, get_top_users_stats
 from mini_erp_cafe.db.session import get_async_session
 from mini_erp_cafe.models.menu_item import MenuItem
 from mini_erp_cafe.models.order import Order, OrderItem
@@ -155,3 +155,14 @@ async def get_top_items(
     items = await get_top_menu_items(db, limit)
     return {"top_items": items}
 
+
+@router.get("/stats/users")
+async def get_top_users(
+    limit: int = 5,
+    db: AsyncSession = Depends(get_async_session)
+):
+    """
+    Топ пользователей по количеству заказов и общей сумме.
+    """
+    users = await get_top_users_stats(db, limit)
+    return {"top_users": users}
