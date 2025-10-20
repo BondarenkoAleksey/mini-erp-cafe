@@ -323,3 +323,36 @@ async def get_top_menu_items(
         }
         for row in result.all()
     ]
+
+
+async def get_top_users_stats(
+    db: AsyncSession,
+    limit: int = 5
+) -> list[dict]:
+    """
+    Возвращает топ пользователей по количеству заказов и общей сумме заказов.
+    """
+    stmt = (
+        select(
+            User.id.label("user_id"),
+            User.username.label("username"),
+            func.count(Order.id).label("count_orders"),
+            func.sum(OrderItem.price * OrderItem.quantity).label("total_spent"),
+        )
+        .join(Order, Order.user_id == User.id)
+        .join(OrderItem, OrderItem.order_id == Order.id)
+        .group_by(User.id, User.username)
+        .order_by(desc("total_spent"))
+        .limit(limit)
+    )
+
+    result = await db.execute(stmt)
+    return [
+        {
+            "user_id": row.user_id,
+            "username": row.username,
+            "count_orders": int(row.count_orders or 0),
+            "total_spent": float(row.total_spent or 0)
+        }
+        for row in result.all()
+    ]
