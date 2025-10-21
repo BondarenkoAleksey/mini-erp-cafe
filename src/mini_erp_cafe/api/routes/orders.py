@@ -166,3 +166,15 @@ async def get_top_users(
     """
     users = await get_top_users_stats(db, limit)
     return {"top_users": users}
+
+
+@router.get("/stats/users")
+async def get_top_users(
+    limit: int = 5,
+    db: AsyncSession = Depends(get_async_session)
+):
+    """
+    Топ пользователей по количеству заказов и общей сумме.
+    """
+    users = await get_top_users_stats(db, limit)
+    return {"top_users": users}
