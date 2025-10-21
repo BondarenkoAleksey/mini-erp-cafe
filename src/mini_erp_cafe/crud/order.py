@@ -5,7 +5,7 @@ from sqlalchemy import select, func, cast, Date, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from mini_erp_cafe.models import Order, OrderItem, MenuItem
+from mini_erp_cafe.models import Order, OrderItem, MenuItem, User
 from mini_erp_cafe.schemas.order import OrderCreate, OrderRead, OrderUpdate
 
 
@@ -356,3 +356,37 @@ async def get_top_users_stats(
         }
         for row in result.all()
     ]
+
+
+async def get_orders_summary_stats(db: AsyncSession) -> dict:
+    """
+    Возвращает сводную статистику по всем заказам:
+    - общее количество заказов
+    - общая выручка
+    - средний чек
+    - количество уникальных клиентов
+    """
+    # Общие агрегаты
+    stmt = (
+        select(
+            func.count(Order.id).label("count_orders"),
+            func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
+            func.count(func.distinct(Order.user_id)).label("unique_users"),
+        )
+        .join(OrderItem, OrderItem.order_id == Order.id)
+    )
+
+    result = await db.execute(stmt)
+    row = result.first()
+
+    count_orders = row.count_orders or 0
+    total_revenue = float(row.total_revenue or 0)
+    unique_users = row.unique_users or 0
+    avg_check = round(total_revenue / count_orders, 2) if count_orders else 0.0
+
+    return {
+        "count_orders": count_orders,
+        "total_revenue": total_revenue,
+        "avg_check": avg_check,
+        "unique_users": unique_users,
+    }
