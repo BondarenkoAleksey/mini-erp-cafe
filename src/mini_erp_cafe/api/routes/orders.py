@@ -7,10 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from mini_erp_cafe.crud.order import create_order, get_orders, get_order_by_id, get_orders_daily_stats
 from mini_erp_cafe.crud.order import get_orders_summary, update_order, delete_order
 from mini_erp_cafe.crud.order import get_top_menu_items, get_orders_stats, get_top_users_stats
+from mini_erp_cafe.crud.order import get_orders_summary_stats
 from mini_erp_cafe.db.session import get_async_session
 from mini_erp_cafe.models.menu_item import MenuItem
 from mini_erp_cafe.models.order import Order, OrderItem
 from mini_erp_cafe.schemas.order import OrderCreate, OrderRead, OrderUpdate
+
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -178,3 +180,17 @@ async def get_top_users(
     """
     users = await get_top_users_stats(db, limit)
     return {"top_users": users}
+
+@router.get("/stats/summary")
+async def get_orders_summary(
+    db: AsyncSession = Depends(get_async_session)
+):
+    """
+    Общая статистика по заказам:
+    - количество заказов
+    - общая выручка
+    - средний чек
+    - уникальные клиенты
+    """
+    summary = await get_orders_summary_stats(db)
+    return summary
