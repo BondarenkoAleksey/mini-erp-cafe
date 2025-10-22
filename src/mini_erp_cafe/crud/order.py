@@ -358,15 +358,20 @@ async def get_top_users_stats(
     ]
 
 
-async def get_orders_summary_stats(db: AsyncSession) -> dict:
+async def get_orders_summary_stats(
+    db: AsyncSession,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> dict:
     """
-    Возвращает сводную статистику по всем заказам:
-    - общее количество заказов
-    - общая выручка
-    - средний чек
-    - количество уникальных клиентов
+    Возвращает сводную статистику по заказам с опциональной фильтрацией по дате.
     """
-    # Общие агрегаты
+    if not date_to:
+        date_to = datetime.utcnow()
+    if not date_from:
+        # по умолчанию за последние 30 дней
+        date_from = date_to - timedelta(days=30)
+
     stmt = (
         select(
             func.count(Order.id).label("count_orders"),
@@ -374,6 +379,7 @@ async def get_orders_summary_stats(db: AsyncSession) -> dict:
             func.count(func.distinct(Order.user_id)).label("unique_users"),
         )
         .join(OrderItem, OrderItem.order_id == Order.id)
+        .where(Order.created_at.between(date_from, date_to))
     )
 
     result = await db.execute(stmt)
@@ -385,6 +391,8 @@ async def get_orders_summary_stats(db: AsyncSession) -> dict:
     avg_check = round(total_revenue / count_orders, 2) if count_orders else 0.0
 
     return {
+        "date_from": date_from.date().isoformat(),
+        "date_to": date_to.date().isoformat(),
         "count_orders": count_orders,
         "total_revenue": total_revenue,
         "avg_check": avg_check,
