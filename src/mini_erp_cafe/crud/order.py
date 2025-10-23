@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from mini_erp_cafe.models import Order, OrderItem, MenuItem, User
 from mini_erp_cafe.schemas.order import OrderCreate, OrderRead, OrderUpdate
+from typing_extensions import Dict
 
 
 async def get_orders(
@@ -398,3 +399,48 @@ async def get_orders_summary_stats(
         "avg_check": avg_check,
         "unique_users": unique_users,
     }
+
+
+async def get_orders_stats_by_user(
+    db: AsyncSession,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> List[Dict]:
+    """
+    Возвращает статистику заказов по каждому пользователю.
+    """
+    if not date_to:
+        date_to = datetime.utcnow()
+    if not date_from:
+        date_from = date_to - timedelta(days=30)
+
+    stmt = (
+        select(
+            Order.user_id,
+            func.count(Order.id).label("count_orders"),
+            func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
+        )
+        .join(OrderItem, OrderItem.order_id == Order.id)
+        .where(Order.created_at.between(date_from, date_to))
+        .group_by(Order.user_id)
+        .order_by(func.sum(OrderItem.price * OrderItem.quantity).desc())
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    stats = []
+    for row in rows:
+        total_revenue = float(row.total_revenue or 0)
+        count_orders = row.count_orders or 0
+        avg_check = round(total_revenue / count_orders, 2) if count_orders else 0.0
+        stats.append(
+            {
+                "user_id": row.user_id,
+                "count_orders": count_orders,
+                "total_revenue": total_revenue,
+                "avg_check": avg_check,
+            }
+        )
+
+    return stats
