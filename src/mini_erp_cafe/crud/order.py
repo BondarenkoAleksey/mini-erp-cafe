@@ -444,3 +444,46 @@ async def get_orders_stats_by_user(
         )
 
     return stats
+
+
+async def get_orders_stats_by_item(
+    db: AsyncSession,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> List[Dict]:
+    """
+    Возвращает статистику продаж по блюдам (позициям меню).
+    """
+    if not date_to:
+        date_to = datetime.utcnow()
+    if not date_from:
+        date_from = date_to - timedelta(days=30)
+
+    stmt = (
+        select(
+            OrderItem.menu_item_id,
+            MenuItem.name.label("menu_item_name"),
+            func.sum(OrderItem.quantity).label("total_quantity"),
+            func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
+            func.avg(OrderItem.price).label("avg_price"),
+        )
+        .join(Order, Order.id == OrderItem.order_id)
+        .join(MenuItem, MenuItem.id == OrderItem.menu_item_id)
+        .where(Order.created_at.between(date_from, date_to))
+        .group_by(OrderItem.menu_item_id, MenuItem.name)
+        .order_by(func.sum(OrderItem.price * OrderItem.quantity).desc())
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    return [
+        {
+            "menu_item_id": row.menu_item_id,
+            "menu_item_name": row.menu_item_name,
+            "total_quantity": int(row.total_quantity or 0),
+            "total_revenue": float(row.total_revenue or 0),
+            "avg_price": float(round(row.avg_price or 0, 2)),
+        }
+        for row in rows
+    ]

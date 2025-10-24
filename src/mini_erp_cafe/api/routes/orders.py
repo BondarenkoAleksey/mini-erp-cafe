@@ -8,6 +8,7 @@ from mini_erp_cafe.crud.order import create_order, get_orders, get_order_by_id, 
 from mini_erp_cafe.crud.order import get_orders_summary, update_order, delete_order
 from mini_erp_cafe.crud.order import get_top_menu_items, get_orders_stats, get_top_users_stats
 from mini_erp_cafe.crud.order import get_orders_stats_by_user, get_orders_summary_stats
+from mini_erp_cafe.crud.order import get_orders_stats_by_item
 from mini_erp_cafe.db.session import get_async_session
 from mini_erp_cafe.models.menu_item import MenuItem
 from mini_erp_cafe.models.order import Order, OrderItem
@@ -198,7 +199,7 @@ async def get_orders_summary(
 
 @router.get("/stats/by-user")
 async def get_orders_stats_by_user_endpoint(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_async_session),
     date_from: Optional[datetime] = Query(None, description="Начальная дата (ISO)"),
     date_to: Optional[datetime] = Query(None, description="Конечная дата (ISO)"),
 ):
@@ -210,3 +211,19 @@ async def get_orders_stats_by_user_endpoint(
     - сортировка по сумме (по убыванию)
     """
     return await get_orders_stats_by_user(db, date_from, date_to)
+
+
+@router.get("/stats/by-item")
+async def get_orders_stats_by_item_endpoint(
+    db: AsyncSession = Depends(get_async_session),
+    date_from: Optional[datetime] = Query(None, description="Начальная дата (ISO)"),
+    date_to: Optional[datetime] = Query(None, description="Конечная дата (ISO)"),
+):
+    """
+    Возвращает статистику продаж по блюдам:
+    - количество проданных единиц
+    - общая выручка
+    - средняя цена
+    - сортировка по выручке
+    """
+    return await get_orders_stats_by_item(db, date_from, date_to)
