@@ -487,3 +487,43 @@ async def get_orders_stats_by_item(
         }
         for row in rows
     ]
+
+
+async def get_orders_stats_by_day_and_user(
+    db: AsyncSession,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> List[Dict]:
+    """
+    Возвращает статистику заказов по дням и пользователям.
+    """
+    if not date_to:
+        date_to = datetime.utcnow()
+    if not date_from:
+        date_from = date_to - timedelta(days=7)
+
+    stmt = (
+        select(
+            cast(func.date_trunc("day", Order.created_at), Date).label("date"),
+            Order.user_id,
+            User.name.label("user_name"),
+            func.count(Order.id).label("count_orders"),
+        )
+        .join(User, User.id == Order.user_id)
+        .where(Order.created_at.between(date_from, date_to))
+        .group_by("date", Order.user_id, User.name)
+        .order_by("date", Order.user_id)
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    return [
+        {
+            "date": row.date,
+            "user_id": row.user_id,
+            "user_name": row.user_name,
+            "count_orders": int(row.count_orders or 0),
+        }
+        for row in rows
+    ]
