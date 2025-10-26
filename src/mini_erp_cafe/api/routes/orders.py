@@ -240,3 +240,17 @@ async def get_orders_stats_by_day_and_user_endpoint(
     Удобно для анализа активности.
     """
     return await get_orders_stats_by_day_and_user(db, date_from, date_to)
+
+
+@router.get("/stats/top-users")
+async def get_top_users_stats_endpoint(
+    db: AsyncSession = Depends(get_async_session),
+    limit: int = Query(10, ge=1, le=100, description="Сколько пользователей вернуть"),
+    metric: str = Query("count", regex="^(count|revenue)$", description="Метрика сортировки"),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+):
+    """
+    Возвращает топ пользователей по количеству заказов или общей сумме.
+    """
+    return await get_top_users_stats(db, limit, metric, date_from, date_to)

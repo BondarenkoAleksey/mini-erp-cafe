@@ -328,32 +328,48 @@ async def get_top_menu_items(
 
 async def get_top_users_stats(
     db: AsyncSession,
-    limit: int = 5
-) -> list[dict]:
+    limit: int = 10,
+    metric: str = "count",
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> List[dict]:
     """
-    Возвращает топ пользователей по количеству заказов и общей сумме заказов.
+    Возвращает топ пользователей по заказам или сумме за период.
     """
+    if not date_to:
+        date_to = datetime.utcnow()
+    if not date_from:
+        date_from = date_to - timedelta(days=30)
+
+    # Базовый запрос с join
     stmt = (
         select(
             User.id.label("user_id"),
-            User.username.label("username"),
+            User.name.label("user_name"),
             func.count(Order.id).label("count_orders"),
-            func.sum(OrderItem.price * OrderItem.quantity).label("total_spent"),
+            func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
         )
         .join(Order, Order.user_id == User.id)
-        .join(OrderItem, OrderItem.order_id == Order.id)
-        .group_by(User.id, User.username)
-        .order_by(desc("total_spent"))
-        .limit(limit)
+        .join(Order.items)
+        .where(Order.created_at.between(date_from, date_to))
+        .group_by(User.id, User.name)
     )
+
+    # Сортировка по выбранной метрике
+    if metric == "revenue":
+        stmt = stmt.order_by(desc(func.sum(OrderItem.price * OrderItem.quantity)))
+    else:
+        stmt = stmt.order_by(desc(func.count(Order.id)))
+
+    stmt = stmt.limit(limit)
 
     result = await db.execute(stmt)
     return [
         {
             "user_id": row.user_id,
-            "username": row.username,
+            "user_name": row.user_name,
             "count_orders": int(row.count_orders or 0),
-            "total_spent": float(row.total_spent or 0)
+            "total_revenue": float(row.total_revenue or 0),
         }
         for row in result.all()
     ]
