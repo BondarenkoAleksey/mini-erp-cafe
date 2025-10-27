@@ -9,6 +9,7 @@ from mini_erp_cafe.crud.order import get_orders_summary, update_order, delete_or
 from mini_erp_cafe.crud.order import get_top_menu_items, get_orders_stats, get_top_users_stats
 from mini_erp_cafe.crud.order import get_orders_stats_by_user, get_orders_summary_stats
 from mini_erp_cafe.crud.order import get_orders_stats_by_item, get_orders_stats_by_day_and_user
+from mini_erp_cafe.crud.order import get_orders_weekly_stats
 from mini_erp_cafe.db.session import get_async_session
 from mini_erp_cafe.models.menu_item import MenuItem
 from mini_erp_cafe.models.order import Order, OrderItem
@@ -254,3 +255,16 @@ async def get_top_users_stats_endpoint(
     Возвращает топ пользователей по количеству заказов или общей сумме.
     """
     return await get_top_users_stats(db, limit, metric, date_from, date_to)
+
+
+@router.get("/stats/by-week")
+async def get_orders_weekly_stats_endpoint(
+    db: AsyncSession = Depends(get_async_session),
+    date_from: Optional[datetime] = Query(None, description="Начальная дата диапазона"),
+    date_to: Optional[datetime] = Query(None, description="Конечная дата диапазона"),
+):
+    """
+    Возвращает статистику заказов по неделям.
+    """
+    return await get_orders_weekly_stats(db, date_from, date_to)
+

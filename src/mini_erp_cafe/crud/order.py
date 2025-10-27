@@ -543,3 +543,41 @@ async def get_orders_stats_by_day_and_user(
         }
         for row in rows
     ]
+
+
+async def get_orders_weekly_stats(
+    db: AsyncSession,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> List[dict]:
+    """
+    Возвращает статистику заказов по неделям:
+    количество заказов и общая сумма.
+    По умолчанию за последние 8 недель.
+    """
+    if not date_to:
+        date_to = datetime.utcnow()
+    if not date_from:
+        date_from = date_to - timedelta(weeks=8)
+
+    stmt = (
+        select(
+            func.date_trunc("week", Order.created_at).label("week_start"),
+            func.count(Order.id).label("count_orders"),
+            func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
+        )
+        .join(Order.items)
+        .where(Order.created_at.between(date_from, date_to))
+        .group_by("week_start")
+        .order_by("week_start")
+    )
+
+    result = await db.execute(stmt)
+    return [
+        {
+            "week_start": row.week_start.date(),
+            "count_orders": int(row.count_orders or 0),
+            "total_revenue": float(row.total_revenue or 0),
+        }
+        for row in result.all()
+    ]
