@@ -581,3 +581,45 @@ async def get_orders_weekly_stats(
         }
         for row in result.all()
     ]
+
+
+async def get_orders_by_user_stats(
+    db: AsyncSession,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> List[dict]:
+    """
+    Возвращает статистику заказов по пользователям:
+    количество, сумма и средний чек за период.
+    """
+    if not date_to:
+        date_to = datetime.utcnow()
+    if not date_from:
+        date_from = date_to - timedelta(days=30)
+
+    stmt = (
+        select(
+            User.id.label("user_id"),
+            User.username.label("username"),
+            func.count(Order.id).label("count_orders"),
+            func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
+            (func.sum(OrderItem.price * OrderItem.quantity) / func.count(Order.id)).label("avg_order_value"),
+        )
+        .join(Order, Order.user_id == User.id)
+        .join(Order.items)
+        .where(Order.created_at.between(date_from, date_to))
+        .group_by(User.id, User.username)
+        .order_by(desc("total_revenue"))
+    )
+
+    result = await db.execute(stmt)
+    return [
+        {
+            "user_id": row.user_id,
+            "username": row.username,
+            "count_orders": int(row.count_orders or 0),
+            "total_revenue": float(row.total_revenue or 0),
+            "avg_order_value": float(row.avg_order_value or 0),
+        }
+        for row in result.all()
+    ]
