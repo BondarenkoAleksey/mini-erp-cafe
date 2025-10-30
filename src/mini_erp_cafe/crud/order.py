@@ -667,3 +667,43 @@ async def get_orders_by_item_stats(
         }
         for row in result.all()
     ]
+
+
+async def get_orders_by_hour_stats(
+    db: AsyncSession,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> List[dict]:
+    """
+    Возвращает статистику заказов по часам суток.
+    """
+    if not date_to:
+        date_to = datetime.utcnow()
+    if not date_from:
+        date_from = date_to - timedelta(days=7)
+
+    stmt = (
+        select(
+            func.extract("hour", Order.created_at).label("hour"),
+            func.count(Order.id).label("count_orders"),
+            func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
+        )
+        .join(Order.items)
+        .where(Order.created_at.between(date_from, date_to))
+        .group_by("hour")
+        .order_by("hour")
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    # Формируем полный диапазон 0–23, чтобы в ответе были и "пустые" часы
+    hours = {int(row.hour): row for row in rows}
+    return [
+        {
+            "hour": h,
+            "count_orders": int(hours[h].count_orders) if h in hours else 0,
+            "total_revenue": float(hours[h].total_revenue or 0) if h in hours else 0.0,
+        }
+        for h in range(24)
+    ]
