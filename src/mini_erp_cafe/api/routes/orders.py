@@ -11,6 +11,7 @@ from mini_erp_cafe.crud.order import get_orders_stats_by_user, get_orders_summar
 from mini_erp_cafe.crud.order import get_orders_stats_by_item, get_orders_stats_by_day_and_user
 from mini_erp_cafe.crud.order import get_orders_weekly_stats, get_orders_by_user_stats
 from mini_erp_cafe.crud.order import get_orders_by_item_stats
+from mini_erp_cafe.crud.order import get_orders_by_hour_stats
 from mini_erp_cafe.db.session import get_async_session
 from mini_erp_cafe.models.menu_item import MenuItem
 from mini_erp_cafe.models.order import Order, OrderItem
@@ -293,3 +294,15 @@ async def get_orders_by_item_stats_endpoint(
     Возвращает статистику заказов по блюдам (топ продаж).
     """
     return await get_orders_by_item_stats(db, date_from, date_to, limit)
+
+
+@router.get("/stats/by-hour")
+async def get_orders_by_hour_stats_endpoint(
+    db: AsyncSession = Depends(get_async_session),
+    date_from: Optional[datetime] = Query(None, description="Начальная дата диапазона"),
+    date_to: Optional[datetime] = Query(None, description="Конечная дата диапазона"),
+):
+    """
+    Возвращает статистику заказов по часам суток.
+    """
+    return await get_orders_by_hour_stats(db, date_from, date_to)
