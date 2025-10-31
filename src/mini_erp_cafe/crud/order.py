@@ -707,3 +707,45 @@ async def get_orders_by_hour_stats(
         }
         for h in range(24)
     ]
+
+
+async def get_orders_by_weekday_stats(
+    db: AsyncSession,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> List[dict]:
+    """
+    Возвращает статистику заказов по дням недели (0=Понедельник ... 6=Воскресенье).
+    """
+    if not date_to:
+        date_to = datetime.utcnow()
+    if not date_from:
+        date_from = date_to - timedelta(days=30)
+
+    stmt = (
+        select(
+            func.extract("dow", Order.created_at).label("weekday"),
+            func.count(Order.id).label("count_orders"),
+            func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
+        )
+        .join(Order.items)
+        .where(Order.created_at.between(date_from, date_to))
+        .group_by("weekday")
+        .order_by("weekday")
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    weekday_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    weekday_data = {int(r.weekday): r for r in rows}
+
+    return [
+        {
+            "weekday": i,
+            "weekday_name": weekday_names[i],
+            "count_orders": int(weekday_data[i].count_orders) if i in weekday_data else 0,
+            "total_revenue": float(weekday_data[i].total_revenue or 0) if i in weekday_data else 0.0,
+        }
+        for i in range(7)
+    ]
