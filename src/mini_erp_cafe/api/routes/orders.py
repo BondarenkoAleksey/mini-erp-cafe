@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -289,12 +289,13 @@ async def get_orders_by_item_stats_endpoint(
     db: AsyncSession = Depends(get_async_session),
     date_from: Optional[datetime] = Query(None, description="Начальная дата диапазона"),
     date_to: Optional[datetime] = Query(None, description="Конечная дата диапазона"),
-    limit: int = Query(10, description="Количество позиций в ответе"),
+    limit: int = Query(10, ge=1, le=100, description="Ограничение по количеству позиций"),
+    mode: Literal["sales", "popularity"] = Query("sales", description="Режим статистики: sales или popularity"),
 ):
     """
-    Возвращает статистику заказов по блюдам (топ продаж).
+    Возвращает статистику блюд по продажам или популярности.
     """
-    return await get_orders_by_item_stats(db, date_from, date_to, limit)
+    return await get_orders_by_item_stats(db, date_from, date_to, limit, mode)
 
 
 @router.get("/stats/by-hour")

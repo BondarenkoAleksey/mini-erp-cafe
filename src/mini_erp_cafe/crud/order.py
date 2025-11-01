@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import List, Optional
-from sqlalchemy import select, func, cast, Date, desc
+from sqlalchemy import select, func, cast, Date, desc, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -630,43 +630,69 @@ async def get_orders_by_item_stats(
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
     limit: int = 10,
+    mode: Literal["sales", "popularity"] = "sales",
 ) -> List[dict]:
     """
-    Возвращает статистику заказов по блюдам (позициям меню):
-    количество продаж, сумма и средняя цена.
+    Универсальная статистика заказов по блюдам (позициям меню):
+    - mode="sales": количество продаж, сумма и средняя цена;
+    - mode="popularity": количество заказов, где блюдо встречается, и выручка.
     """
     if not date_to:
         date_to = datetime.utcnow()
     if not date_from:
         date_from = date_to - timedelta(days=30)
 
-    stmt = (
-        select(
-            MenuItem.id.label("menu_item_id"),
-            MenuItem.name.label("menu_item_name"),
-            func.sum(OrderItem.quantity).label("count_sold"),
-            func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
-            func.avg(OrderItem.price).label("avg_price"),
+    if mode == "sales":
+        # 💰 Режим: статистика продаж
+        stmt = (
+            select(
+                MenuItem.id.label("menu_item_id"),
+                MenuItem.name.label("menu_item_name"),
+                func.sum(OrderItem.quantity).label("count_sold"),
+                func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
+                func.avg(OrderItem.price).label("avg_price"),
+            )
+            .join(OrderItem.menu_item)
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(Order.created_at.between(date_from, date_to))
+            .group_by(MenuItem.id, MenuItem.name)
+            .order_by(desc("count_sold"))
+            .limit(limit)
         )
-        .join(OrderItem.menu_item)
-        .join(Order, Order.id == OrderItem.order_id)
-        .where(Order.created_at.between(date_from, date_to))
-        .group_by(MenuItem.id, MenuItem.name)
-        .order_by(desc("count_sold"))
-        .limit(limit)
-    )
+
+    else:
+        # ⭐ Режим: популярность блюд по заказам
+        stmt = (
+            select(
+                MenuItem.id.label("menu_item_id"),
+                MenuItem.name.label("menu_item_name"),
+                func.count(distinct(OrderItem.order_id)).label("count_orders"),
+                func.sum(OrderItem.quantity).label("count_sold"),
+                func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
+            )
+            .join(OrderItem.menu_item)
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(Order.created_at.between(date_from, date_to))
+            .group_by(MenuItem.id, MenuItem.name)
+            .order_by(desc("total_revenue"))
+            .limit(limit)
+        )
 
     result = await db.execute(stmt)
+    rows = result.all()
+
     return [
         {
             "menu_item_id": row.menu_item_id,
             "menu_item_name": row.menu_item_name,
-            "count_sold": int(row.count_sold or 0),
-            "total_revenue": float(row.total_revenue or 0),
-            "avg_price": float(row.avg_price or 0),
+            "count_sold": int(getattr(row, "count_sold", 0) or 0),
+            "count_orders": int(getattr(row, "count_orders", 0) or 0),
+            "total_revenue": float(getattr(row, "total_revenue", 0) or 0),
+            "avg_price": float(getattr(row, "avg_price", 0) or 0),
         }
-        for row in result.all()
+        for row in rows
     ]
+
 
 
 async def get_orders_by_hour_stats(
