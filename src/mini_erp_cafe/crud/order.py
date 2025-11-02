@@ -775,3 +775,52 @@ async def get_orders_by_weekday_stats(
         }
         for i in range(7)
     ]
+
+
+async def get_order_completion_time_stats(
+    db: AsyncSession,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> dict:
+    """
+    Возвращает статистику по времени выполнения заказов (от создания до завершения).
+    """
+    if not date_to:
+        date_to = datetime.utcnow()
+    if not date_from:
+        date_from = date_to - timedelta(days=30)
+
+    stmt = (
+        select(
+            func.avg(func.extract("epoch", Order.closed_at - Order.created_at)).label("avg_seconds"),
+            func.min(func.extract("epoch", Order.closed_at - Order.created_at)).label("min_seconds"),
+            func.max(func.extract("epoch", Order.closed_at - Order.created_at)).label("max_seconds"),
+            func.count(Order.id).label("count_orders"),
+        )
+        .where(Order.closed_at.is_not(None))
+        .where(Order.created_at.between(date_from, date_to))
+    )
+
+    result = await db.execute(stmt)
+    row = result.first()
+
+    if not row or not row.count_orders:
+        return {"message": "Нет завершённых заказов за указанный период"}
+
+    def fmt(seconds: float):
+        if seconds is None:
+            return None
+        minutes = int(seconds // 60)
+        secs = int(seconds % 60)
+        return f"{minutes}m {secs}s"
+
+    return {
+        "period": {
+            "from": date_from.isoformat(),
+            "to": date_to.isoformat(),
+        },
+        "count_orders": int(row.count_orders),
+        "avg_time": fmt(row.avg_seconds),
+        "min_time": fmt(row.min_seconds),
+        "max_time": fmt(row.max_seconds),
+    }
